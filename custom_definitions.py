@@ -93,3 +93,45 @@ class RemoveUnusualChars(BaseEstimator, TransformerMixin):
             X_copy[col] = X_copy[col].astype(str).apply(lambda x: re.sub(self.pattern, '', x))
 
         return X_copy
+
+# shrihari telang,
+class ColumnSplitter(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        pass
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        X_copy = X.copy()
+        
+        if 'feature_8,feature_15' in X_copy.columns:
+            split_df = X_copy['feature_8,feature_15'].str.split(',', expand=True)
+            X_copy['feature_8'] = split_df[0]
+            X_copy['feature_15'] = split_df[1]
+            X_copy = X_copy.drop(columns=['feature_8,feature_15'])
+        
+        if 'feature_21,feature_10' in X_copy.columns:
+            split_df = X_copy['feature_21,feature_10'].str.split(',', expand=True)
+            X_copy['feature_21'] = split_df[0]
+            X_copy['feature_10'] = split_df[1]
+            X_copy = X_copy.drop(columns=['feature_21,feature_10'])
+        
+        if 'feature_1,feature_6' in X_copy.columns:
+            split_df = X_copy['feature_1,feature_6'].str.split(',', expand=True)
+            X_copy['feature_1'] = split_df[0]
+            X_copy['feature_6'] = split_df[1]
+            X_copy = X_copy.drop(columns=['feature_1,feature_6'])
+        return X_copy
+
+class FeatureSelector(BaseEstimator, TransformerMixin):
+
+    def __init__(self, columns_to_keep):
+        self.columns_to_keep = columns_to_keep
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        return X[self.columns_to_keep]
