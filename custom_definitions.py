@@ -54,6 +54,16 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
         X_future['new_feature_1'] = X_future['portland_cement_kg'] * X_future['mixing_water_kg']
         X_future['new_feature_2'] = X_future['ground_slag_kg'] + X_future['coal_ash_kg']
         return X_future
+
+# if any error comes from above feature engineering class use this once
+class FeatureEngineer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X, y=None):
+        X_future = X.copy()
+        X_future['new_feature_1'] = X_future['portland_cement_kg'] * X_future['mixing_water_kg']
+        X_future['new_feature_2'] = X_future['ground_slag_kg'] + X_future['coal_ash_kg']+ X_future['portland_cement_kg']
+        return X_future
 #==========Arjun E Naik==============
 
 #=========Rudra======================
@@ -332,4 +342,5 @@ submission_pipeline = Pipeline([
 ])
 
 #===============Shrihari=============================================
+
 
