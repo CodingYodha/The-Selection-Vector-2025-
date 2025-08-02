@@ -42,17 +42,49 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
 #==================================shrihari=====================================================================
 
 
+import pandas as pd
+import numpy as np
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+
+# This is the final, all-in-one transformer for your custom_definitions.py file.
 class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
-    def __init__(self, columns=None):
-        self.columns = columns
+    def __init__(self):
+        self.raw_features = [
+            'portland_cement_kg', 'ground_slag_kg', 'coal_ash_kg', 'mixing_water_kg',
+            'chemical_admixture_kg', 'gravel_aggregate_kg', 'sand_aggregate_kg', 'specimen_age_days'
+        ]
+        self.column_mapping = {
+            'portland_cement_kg': 'Cement_component_1kg_in_a_m3_mixture',
+            'ground_slag_kg': 'Blast_Furnace_Slag_component_2kg_in_a_m3_mixture',
+            'coal_ash_kg': 'Fly_Ash_component_3kg_in_a_m3_mixture',
+            'mixing_water_kg': 'Water_component_4kg_in_a_m3_mixture',
+            'chemical_admixture_kg': 'Superplasticizer_component_5kg_in_a_m3_mixture',
+            'gravel_aggregate_kg': 'Coarse_Aggregate_component_6kg_in_a_m3_mixture',
+            'sand_aggregate_kg': 'Fine_Aggregate_component_7kg_in_a_m3_mixture',
+            'specimen_age_days': 'Age_day'
+        }
 
     def fit(self, X, y=None):
-        if self.columns is None:
-            self.columns = X.columns
         return self
 
     def transform(self, X, y=None):
-        df = pd.DataFrame(X, columns=self.columns)
+        df = X[self.raw_features].copy()
+
+        for column in df.columns:
+            if df[column].dtype in ['int64', 'float64']:
+                Q1 = df[column].quantile(0.25)
+                Q3 = df[column].quantile(0.75)
+                IQR = Q3 - Q1
+                lower_bound = Q1 - 1.5 * IQR
+                upper_bound = Q3 + 1.5 * IQR
+                df[column] = np.where(df[column] > upper_bound, upper_bound, df[column])
+                df[column] = np.where(df[column] < lower_bound, lower_bound, df[column])
+        
+        df = df.rename(columns=self.column_mapping)
 
         cement = df['Cement_component_1kg_in_a_m3_mixture'].replace(0, 0.0001)
         df['total_binder'] = (
@@ -81,4 +113,12 @@ class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
         ])
         
         return df
+
+# This is the final pipeline definition for your main submission script.
+submission_pipeline = Pipeline([
+    ('feature_engineer', FinalFeatureEngineer()),
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler()),
+    ('model', Ridge(alpha=10.0, random_state=42))
+])
 #============================================shrihari=======================================================================================================
