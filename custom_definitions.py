@@ -446,7 +446,6 @@ class FinalCleaner:
         scaler = StandardScaler()
         X[num_cols] = scaler.fit_transform(X[num_cols])
         return X
-=======
 # This pipeline uses the best configuration we found
 submission_pipeline = Pipeline([
     ('feature_engineer', FinalFeatureEngineer()),
