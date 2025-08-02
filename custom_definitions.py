@@ -41,13 +41,18 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
 
 #==================================shrihari=====================================================================
 
+
 class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
+    def __init__(self, columns=None):
+        self.columns = columns
+
     def fit(self, X, y=None):
-        self.columns_ = X.columns
+        if self.columns is None:
+            self.columns = X.columns
         return self
 
     def transform(self, X, y=None):
-        df = pd.DataFrame(X, columns=self.columns_)
+        df = pd.DataFrame(X, columns=self.columns)
 
         cement = df['Cement_component_1kg_in_a_m3_mixture'].replace(0, 0.0001)
         df['total_binder'] = (
@@ -76,45 +81,4 @@ class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
         ])
         
         return df
-    
-column_mapping = {
-    'portland_cement_kg': 'Cement_component_1kg_in_a_m3_mixture',
-    'ground_slag_kg': 'Blast_Furnace_Slag_component_2kg_in_a_m3_mixture',
-    'coal_ash_kg': 'Fly_Ash_component_3kg_in_a_m3_mixture',
-    'mixing_water_kg': 'Water_component_4kg_in_a_m3_mixture',
-    'chemical_admixture_kg': 'Superplasticizer_component_5kg_in_a_m3_mixture',
-    'gravel_aggregate_kg': 'Coarse_Aggregate_component_6kg_in_a_m3_mixture',
-    'sand_aggregate_kg': 'Fine_Aggregate_component_7kg_in_a_m3_mixture',
-    'specimen_age_days': 'Age_day'
-}
-df = df.rename(columns=column_mapping)
-
-TARGET = 'compressive_strength_mpa'
-CORE_FEATURES = list(column_mapping.values())
-df_clean = df[CORE_FEATURES + [TARGET]]
-
-df_clean.dropna(subset=[TARGET], inplace=True)
-
-# 2. Handle Outliers
-for column in df_clean.columns:
-    if df_clean[column].dtype in ['int64', 'float64']:
-        Q1 = df_clean[column].quantile(0.25)
-        Q3 = df_clean[column].quantile(0.75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - 1.5 * IQR
-        upper_bound = Q3 + 1.5 * IQR
-        df_clean[column] = np.where(df_clean[column] > upper_bound, upper_bound, df_clean[column])
-        df_clean[column] = np.where(df_clean[column] < lower_bound, lower_bound, df_clean[column])
-
-# 3. Prepare Final Data and Pipeline
-X = df_clean.drop(TARGET, axis=1)
-y = df_clean[TARGET]
-
-# This pipeline uses the best configuration we found
-submission_pipeline = Pipeline([
-    ('feature_engineer', FinalFeatureEngineer()),
-    ('imputer', SimpleImputer(strategy='median')),
-    ('scaler', StandardScaler()),
-    ('model', Ridge(alpha=10.0, random_state=42)) # Using the best alpha
-])
 #============================================shrihari=======================================================================================================
