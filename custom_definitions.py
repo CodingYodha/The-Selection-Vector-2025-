@@ -44,13 +44,15 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
 
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
 
-# This is the final, all-in-one transformer for your custom_definitions.py file.
+# --- Step 1: Define the All-in-One Custom Transformer ---
+# This class encapsulates all preprocessing and feature engineering logic.
 class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
     def __init__(self):
         self.raw_features = [
@@ -114,11 +116,12 @@ class FinalFeatureEngineer(BaseEstimator, TransformerMixin):
         
         return df
 
-# This is the final pipeline definition for your main submission script.
+
 submission_pipeline = Pipeline([
     ('feature_engineer', FinalFeatureEngineer()),
     ('imputer', SimpleImputer(strategy='median')),
     ('scaler', StandardScaler()),
-    ('model', Ridge(alpha=10.0, random_state=42))
+    ('model', LinearRegression()) # Using the required model
 ])
+
 #============================================shrihari=======================================================================================================
