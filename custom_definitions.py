@@ -484,3 +484,112 @@ class ConcretePreprocessor(BaseEstimator, TransformerMixin):
         return X
         
 #===============Mouryagna====================
+
+
+# ================ Abdul Malik ======================
+
+import pandas as pd
+import numpy as np
+from scipy.stats import skew
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class PreprocessingTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.imputers_ = {}
+        self.clipping_values_ = {}
+        self.skewed_cols_ = []
+        self.min_vals_for_log_ = {}
+        self.fitted_columns_ = None
+        self.danger_cap_ = None
+        self.drop_cols_ = [
+            'batch_id', 'json_notes', 'random_noise', 'Row_ID', 'Unnamed: 0',
+            'weird_col', 'mixing_water_kg_mislabeled', 'nan_col', 'static_col',
+            'last_modified', 'leaky_strength_log', 'compressive_strength_duplicate',
+            'compressive_strength_mpa_str', 'compreesive_strength_mpa',
+            'compressive_strength_mpas', 'strength_category', 'is_valid_strength',
+            'inspection_timestamp', 'pseudo_target', 'supplier_rating', 'is_approved'
+        ]
+        self.grade_mapping_ = {
+            'fifty three': '53', '53 grade': '53', '53grade': '53', 'grade 53': '53',
+            '43a': '43', 'grade 43a': '43', '43A': '43', '43': '43',
+            '33': '33', '43 grade': '43', '32.5': '33', '32': '33'
+        }
+
+    def fit(self, X, y=None):
+        X_fit = X.copy()
+        
+        cols_to_drop = [c for c in self.drop_cols_ if c in X_fit.columns]
+        X_fit.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+        X_fit.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.fitted_columns_ = X_fit.columns
+
+        if 'time_since_casting' in X_fit.columns:
+            X_fit['time_since_casting'] = pd.to_timedelta(X_fit['time_since_casting'], errors='coerce').dt.total_seconds() / 86400.0
+
+        for col in self.fitted_columns_:
+            if X_fit[col].dtype == 'object':
+                if not X_fit[col].mode(dropna=True).empty:
+                    self.imputers_[col] = X_fit[col].mode(dropna=True)[0]
+            else:
+                self.imputers_[col] = X_fit[col].median()
+
+        X_fit.fillna(self.imputers_, inplace=True)
+
+        num_cols = X_fit.select_dtypes(include=np.number).columns
+        if 'dangerous_ratio' in num_cols:
+            self.danger_cap_ = X_fit['dangerous_ratio'].quantile(0.99)
+
+        for col in num_cols:
+            q1, q3 = X_fit[col].quantile([0.25, 0.75])
+            iqr = q3 - q1
+            self.clipping_values_[col] = (q1 - 1.5 * iqr, q3 + 1.5 * iqr)
+            
+            if abs(skew(X_fit[col].dropna())) > 2:
+                self.skewed_cols_.append(col)
+                minv = X_fit[col].min()
+                if minv <= 0:
+                    self.min_vals_for_log_[col] = minv
+        
+        return self
+
+    def transform(self, X):
+        X_trans = X.copy()
+        
+        cols_to_drop = [c for c in self.drop_cols_ if c in X_trans.columns]
+        X_trans.drop(columns=cols_to_drop, inplace=True, errors='ignore')
+        X_trans = X_trans.reindex(columns=self.fitted_columns_, fill_value=np.nan)
+        X_trans.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+        X_trans.fillna(self.imputers_, inplace=True)
+
+        if 'time_since_casting' in X_trans.columns:
+            X_trans['time_since_casting'] = pd.to_timedelta(X_trans['time_since_casting'], errors='coerce').dt.total_seconds() / 86400.0
+        
+        num_cols = X_trans.select_dtypes(include=np.number).columns
+        if self.danger_cap_ is not None and 'dangerous_ratio' in num_cols:
+            X_trans['dangerous_ratio'] = X_trans['dangerous_ratio'].clip(upper=self.danger_cap_)
+
+        for col in num_cols:
+            lo, hi = self.clipping_values_.get(col, (None, None))
+            X_trans[col] = X_trans[col].clip(lo, hi)
+
+        for col in self.skewed_cols_:
+            if col in X_trans.columns:
+                minv = self.min_vals_for_log_.get(col)
+                if minv is not None:
+                    X_trans[col] = np.log1p(X_trans[col] - minv + 1)
+                else:
+                    X_trans[col] = np.log1p(X_trans[col])
+
+        for col in num_cols:
+            X_trans[col] = X_trans[col].clip(lower=0)
+            
+        if 'cement_grade' in X_trans.columns:
+            X_trans['cement_grade'] = X_trans['cement_grade'].astype(str).str.strip().str.lower().replace(self.grade_mapping_)
+            common_grades = ['33', '43', '53']
+            X_trans['cement_grade'] = X_trans['cement_grade'].apply(lambda x: x if x in common_grades else 'other')
+
+        return X_trans
+
+
+# ================ Abdul Malik ======================
