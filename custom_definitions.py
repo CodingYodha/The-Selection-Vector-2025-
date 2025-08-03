@@ -93,3 +93,38 @@ class RemoveUnusualChars(BaseEstimator, TransformerMixin):
             X_copy[col] = X_copy[col].astype(str).apply(lambda x: re.sub(self.pattern, '', x))
 
         return X_copy
+
+from sklearn.base import BaseEstimator, TransformerMixin
+import numpy as np
+import re
+
+class SHARAD_VYAS_OutlierCapper(BaseEstimator, TransformerMixin):
+    """
+    Caps outliers in numerical columns using IQR method.
+    """
+    def __init__(self, factor=1.5):
+        self.factor = factor
+        self.lower_bounds_ = {}
+        self.upper_bounds_ = {}
+
+    def fit(self, X, y=None):
+        X = X.copy()
+        for col in X.columns:
+            q1 = X[col].quantile(0.25)
+            q3 = X[col].quantile(0.75)
+            iqr = q3 - q1
+            lower = q1 - self.factor * iqr
+            upper = q3 + self.factor * iqr
+            self.lower_bounds_[col] = lower
+            self.upper_bounds_[col] = upper
+        return self
+
+    def transform(self, X):
+        X = X.copy()
+        for col in X.columns:
+            X[col] = np.clip(
+                X[col],
+                self.lower_bounds_[col],
+                self.upper_bounds_[col]
+            )
+        return X
