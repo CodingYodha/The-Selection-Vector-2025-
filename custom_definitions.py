@@ -593,3 +593,94 @@ class PreprocessingTransformer(BaseEstimator, TransformerMixin):
 
 
 # ================ Abdul Malik ======================
+
+
+def luv_adding_features(X):
+    X = X.copy()
+
+    categorical_columns = ['Magnetic Field Strength', 'Radiation Levels']
+    for col in categorical_columns:
+        X[col] = X[col].astype('category')
+        if 'missing' not in X[col].cat.categories:
+            X[col] = X[col].cat.add_categories(['missing'])
+        X[col] = X[col].fillna('missing')
+
+    numeric_columns = X.select_dtypes(include=[np.number]).columns
+    X[numeric_columns] = X[numeric_columns].fillna(0)
+
+    X['Density_Temp'] = X['Atmospheric Density'] * X['Surface Temperature']
+    X['Gravity_Minerals'] = X['Gravity'] * X['Mineral Abundance']
+    X['Temp_Proximity'] = X['Surface Temperature'] * X['Proximity to Star']
+
+    for col in ['Orbital Period', 'Atmospheric Density', 'Surface Temperature', 'Water Content']:
+        if (X[col] < 0).any():
+            min_val = X[col].min()
+            X[f'log_{col}'] = np.log1p(X[col] - min_val + 1.1)
+        else:
+            X[f'log_{col}'] = np.log1p(X[col])
+
+    
+    eps = 1e-5
+    X['Water_to_Minerals'] = X['Water Content'] / (X['Mineral Abundance'] + eps)
+    X['Density_to_Gravity'] = X['Atmospheric Density'] / (X['Gravity'] + eps)
+    X['Gravity_to_Proximity'] = X['Gravity'] / (X['Proximity to Star'] + eps)
+
+    for col in ['Atmospheric Density', 'Gravity', 'Surface Temperature']:
+        mean = X[col].mean()
+        std = X[col].std()
+        if std > 0:
+            X[f'{col}_zscore'] = (X[col] - mean) / std
+
+    X['Temp_Bin'] = pd.qcut(X['Surface Temperature'], q=3, labels=['Low', 'Medium', 'High'])
+    X['Gravity_Bin'] = pd.cut(X['Gravity'], bins=[0, 5, 15, np.inf], labels=['Low', 'Medium', 'High'])
+
+
+    X['Hot_and_Close'] = ((X['Surface Temperature'] > X['Surface Temperature'].median()) &
+                          (X['Proximity to Star'] < X['Proximity to Star'].median())).astype(int)
+
+    X.replace([np.inf, -np.inf], np.nan, inplace=True)
+
+    return X
+
+class CosmicDP(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.num_cols = []
+        self.cat_cols = []
+        self.num_imputer = None
+        self.cat_imputer = None
+        self.scaler = None
+        self.encoder = None
+
+    def fit(self, X, y=None):
+
+        X = luv_adding_features(X)
+
+        
+        self.num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
+        self.cat_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        self.num_imputer = SimpleImputer(strategy='mean').fit(X[self.num_cols])
+        self.cat_imputer = SimpleImputer(strategy='most_frequent').fit(X[self.cat_cols])
+
+        num_data = self.num_imputer.transform(X[self.num_cols])
+        stdscaler = StandardScaler()
+        self.scaler = stdscaler.fit(num_data)
+
+        cat_data = self.cat_imputer.transform(X[self.cat_cols])
+        ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+        self.encoder = ohe.fit(cat_data)
+
+        return self
+
+    def transform(self, X):
+
+        X = luv_adding_features(X)
+        
+        num_data = self.num_imputer.transform(X[self.num_cols])
+        cat_data = self.cat_imputer.transform(X[self.cat_cols])
+
+        num_scaled = self.scaler.transform(num_data)
+        cat_encoded = self.encoder.transform(cat_data)
+
+        transformed = np.hstack([num_scaled, cat_encoded])
+        return transformed 
