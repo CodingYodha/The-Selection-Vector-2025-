@@ -592,4 +592,41 @@ class PreprocessingTransformer(BaseEstimator, TransformerMixin):
         return X_trans
 
 
+
 # ================ Abdul Malik ======================
+
+# ================ Arjun E Naik =============Cosmic=========
+
+class CategoryGrouper(BaseEstimator, TransformerMixin):
+    def __init__(self, grouped_categories=['Category_8', 'Category_9', 'Category_10'], grouped_label='Grouped', other_label='Other'):
+        self.grouped_categories = grouped_categories
+        self.grouped_label = grouped_label
+        self.other_label = other_label
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+
+        if isinstance(X_copy, np.ndarray):
+
+           X_copy = pd.DataFrame(X_copy, columns=numerical)
+
+
+        for col in ['Magnetic Field Strength', 'Radiation Levels']:
+             if col in X_copy.columns:
+                X_copy[col] = X_copy[col].apply(
+                    lambda x: self.grouped_label if x in self.grouped_categories else self.other_label if pd.notna(x) else x # Handle NaN values
+                )
+        return X_copy
+
+
+class HabitabilityIndex(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X):
+        X_copy = X.copy()
+        X_copy['Habitability'] = (X_copy['Surface Temperature'] + X_copy['Water Content'] + X_copy['Atmospheric Density']) / 3
+        return X_copy
+# ================ Arjun E Naik =============Cosmic=========
