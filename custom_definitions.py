@@ -15,7 +15,15 @@ import imblearn
 import re
 
 
-#==============Your Name======================
-# Your code
-#==============Your Name=====================
+#==============Abdul Malik======================
+def add_product_feature(X):
+    df = X.copy()
+    df['feature_main'] = df['carat_weight'] * df['price_per_carat']
+    return df
+
+def rmsle(y_true, y_pred):
+    y_pred = np.maximum(y_pred, 0)
+    return np.sqrt(mean_squared_log_error(y_true, y_pred))
+#==============Abdul Malik=====================
 #Dont remove the following snippet and follow the same
+
